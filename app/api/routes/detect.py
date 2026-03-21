@@ -42,3 +42,30 @@ def override_detection(file_id: str, task_type: Optional[str] = None, target_col
     if target_column is not None: 
         entry["target_column"] = target_column
     return {"task_type": entry.get("task_type"), "target_column": entry.get("target_column")}
+
+#Finds their file in file_store
+#Checks if they sent a new task_type — if yes, overwrites the old one
+#Checks if they sent a new target_column — if yes, overwrites that too
+#Returns whatever is now stored
+
+
+@router.get("/{file_id}/profile")
+def stats_profile(file_id: str):
+    if file_id not in file_store:
+        raise HTTPException(status_code=404, detail="File not found")
+    entry = file_store[file_id]
+    raw_bytes = entry["raw_bytes"]
+    filename = entry["filename"]
+    if not filename.endswith((".csv", ".xlsx", ".tsv")):
+        raise HTTPException(status_code=400, detail="Only tabular files supported for profiling")
+    df = pd.read_csv(io.BytesIO(raw_bytes))
+    profile = {}
+    for col in df.columns:
+        profile[col] = {
+            "dtype": str(df[col].dtype),
+            "nulls": int(df[col].isnull().sum()),
+            "unique": int(df[col].nunique()),
+        }
+    return {"profile": profile, "shape": {"rows": df.shape[0], "cols": df.shape[1]}}
+
+#in detect route, we only worked on csv data, that was because the detect route is for data profiling, ie, figuring out what ml models to run and what columns mean and that is only required for data in csv format.
