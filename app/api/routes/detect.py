@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 import pandas as pd
 import io
 from app.api.routes.upload import file_store
+from typing import Optional
 
 router = APIRouter()
 
@@ -30,3 +31,14 @@ def data_profiler(file_id: str):
         confidence = 0.55
     #The confidence is just how sure we are about that decision — binary columns are very obvious so 0.97, numeric is pretty clear so 0.85, clustering is a guess so 0.55.
     return {"target_column": target_col, "task_type": task_type,"confidence": confidence, "unique_values": n_unique, "dtype": dtype}
+
+@router.patch("/")
+def override_detection(file_id: str, task_type: Optional[str] = None, target_column: Optional[str] = None):
+    if file_id not in file_store:
+        raise HTTPException(status_code=404, detail="File not found")
+    entry = file_store[file_id]
+    if task_type is not None:
+        entry["task_type"] = task_type
+    if target_column is not None: 
+        entry["target_column"] = target_column
+    return {"task_type": entry.get("task_type"), "target_column": entry.get("target_column")}
