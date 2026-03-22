@@ -1,0 +1,18 @@
+21/3/26
+I made the folder structure of the project.  
+automl_engine/
+├── app/
+│   ├── api/
+│   │   └── routes/
+│   ├── engines/
+│   ├── models/
+│   └── schemas/
+├── data/
+│   └── samples/
+└── tests/
+
+Made two fastapi routes and tested the work for a few functionalities and they worked perfectly.
+-upload.py 
+-detect.py
+Installed all the required libraries. 
+Committed all the changes and pushed into the repository.
