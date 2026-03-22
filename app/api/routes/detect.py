@@ -30,6 +30,7 @@ def data_profiler(file_id: str):
         task_type = "clustering"
         confidence = 0.55
     #The confidence is just how sure we are about that decision — binary columns are very obvious so 0.97, numeric is pretty clear so 0.85, clustering is a guess so 0.55.
+    entry["task_type"] = task_type
     return {"target_column": target_col, "task_type": task_type,"confidence": confidence, "unique_values": n_unique, "dtype": dtype}
 
 @router.patch("/")
