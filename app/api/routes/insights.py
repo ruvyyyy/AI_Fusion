@@ -6,6 +6,8 @@ from app.api.routes.pipeline import run_store
 
 router = APIRouter()
 
+insights_store = {}
+
 def _load_dataframe(file_id: str) -> pd.DataFrame:
     entry = file_store[file_id]
     return pd.read_csv(io.BytesIO(entry["raw_bytes"]))
