@@ -37,9 +37,7 @@ def _generate_eda_insights(df: pd.DataFrame, target_col: str, task_type: str) ->
             "columns": {}
         }
 
-    return insights
-
-# Target column analysis
+    # Target column analysis
     if target_col in df.columns:
         target = df[target_col]
         if task_type == "classification":
@@ -66,7 +64,7 @@ def _generate_eda_insights(df: pd.DataFrame, target_col: str, task_type: str) ->
                 "summary": "Clustering task — no explicit target column to analyze."
             }
 
-# Numeric feature correlations
+    # Numeric feature correlations
     numeric_cols = df.select_dtypes(include="number").columns.tolist()
     if target_col in numeric_cols:
         numeric_cols.remove(target_col)
@@ -101,6 +99,8 @@ def _generate_eda_insights(df: pd.DataFrame, target_col: str, task_type: str) ->
             "count": len(cat_cols),
             "high_cardinality": high_card
         }
+
+    return insights 
 
 @router.post("/{run_id}/generate")
 def generate_insights(run_id: str):
