@@ -16,3 +16,17 @@ Made two fastapi routes and tested the work for a few functionalities and they w
 -detect.py
 Installed all the required libraries. 
 Committed all the changes and pushed into the repository.
+
+22/3/26
+Completed
+-pipeline.py
+-runs.py
+Committed all chnages
+Ran main.py and everything was a 200 OK.
+
+5/11/26
+Completed
+-models.py 
+Committed all chnages
+Ran main.py and everything was a 200 OK.
+
