@@ -64,15 +64,44 @@ def auto_pipeline(
         "status":   "queued",
         "message":  "Pipeline started. Poll GET /pipeline/{run_id} for progress."
     }
-
+#Updated the placeholder pipeline route to actually create a run entry and trigger the executor, using FastAPI's BackgroundTasks to run it asynchronously. The run_store entry now includes all the fields that executor.py expects to read and update, allowing real-time progress tracking and result storage.
 @router.post("/manual")
-def specification(file_id: str, model: str, target_column: str, task_type: str):
+def specification(
+    file_id: str,
+    model: str,
+    target_column: str,
+    task_type: str,
+    background_tasks: BackgroundTasks,      # ← ADD
+):
     if file_id not in file_store:
         raise HTTPException(status_code=404, detail="File not found")
-    entry = file_store[file_id]
+
     run_id = str(uuid.uuid4())
-    run_store[run_id] = {"status": "running", "file_id": file_id,"task_type": task_type, "target_column": target_column, "model": model}
-    return {"run_id": run_id, "status": "running"}
+
+    run_store[run_id] = {
+        "run_id":        run_id,
+        "file_id":       file_id,
+        "task_type":     task_type,
+        "target_col":    target_column,
+        "status":        "queued",
+        "current_stage": "queued",
+        "progress_pct":  0,
+        "results":       {},
+        "error":         None,
+    }
+
+    background_tasks.add_task(              # ← ADD
+        execute_pipeline,
+        run_id     = run_id,
+        file_id    = file_id,
+        task_type  = task_type,
+        target_col = target_column,
+        model_id   = model,                 # ← passes the user's chosen model
+    )
+
+    return {"run_id": run_id, "status": "queued"}
+
+
 
 @router.get("/{run_id}")
 def run_progress(run_id: str):

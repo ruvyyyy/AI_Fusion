@@ -637,4 +637,27 @@ def run_training_pipeline(
     result["status"] = "completed"
     return result
 
+# =============================================================================
+# JSON SERIALISATION HELPER
+# -----------------------------------------------------------------------------
+# FastAPI cannot serialise numpy types (int64, float64, ndarray) directly.
+# This function recursively walks the result dict and converts everything
+# to plain Python types so FastAPI can return it without errors.
+# Call this on the result dict before storing it in run_store.
+# =============================================================================
+def make_serializable(obj):
+    import numpy as np
+    if isinstance(obj, dict):
+        return {k: make_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [make_serializable(i) for i in obj]
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        return obj
+
 
