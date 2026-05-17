@@ -34,3 +34,10 @@ Ran main.py and everything was a 200 OK.
 
 17/5/26
 Downloaded ollama and the agent for hours. downloaded gemma4:e2b, which is gemma 4 but just a smaller version because the e4b version was giving errors because bigger size, 9.6 gb, currently downloaded the 7.2 gb version.
+The full chain is working end to end. Gemma 4 gave a clear, practical explanation:
+
+Flagged the low accuracy honestly
+Identified salary, experience, department as key features
+Told the user what to investigate next
+
+All in plain English, no bullet points, exactly what we wanted.
