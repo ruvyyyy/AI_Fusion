@@ -57,7 +57,17 @@ MODEL_CATALOG = {
             "n_clusters": {"type": "int", "default": 3, "description": "Number of clusters to form."},
             "max_iter": {"type": "int", "default": 300, "description": "Max iterations per run."}
         }
-    }
+    },
+       "xgboost_regressor": {
+        "name": "XGBoost Regressor",
+        "task_types": ["regression"],
+        "description": "Gradient boosted trees for continuous value prediction. Best default for regression tasks.",
+        "hyperparams": {
+            "n_estimators": {"type": "int", "default": 100, "description": "Number of boosting rounds."},
+            "learning_rate": {"type": "float", "default": 0.1, "description": "Step size per round."},
+            "max_depth": {"type": "int", "default": 6, "description": "Max tree depth."}
+        }
+    },
 }
 
 RECOMMENDED_DEFAULTS = {

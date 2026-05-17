@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException
 import pandas as pd
 import io
 from app.api.routes.upload import file_store
-from app.api.routes.pipeline import run_store
+# from app.api.routes.pipeline import run_store
+from app.engines.store import run_store # direct import to avoid circular imports 
 
 router = APIRouter()
 
