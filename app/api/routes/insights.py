@@ -4,6 +4,7 @@ import io
 from app.api.routes.upload import file_store
 # from app.api.routes.pipeline import run_store
 from app.engines.store import run_store # direct import to avoid circular imports 
+import ollama
 
 router = APIRouter()
 
@@ -103,6 +104,48 @@ def _generate_eda_insights(df: pd.DataFrame, target_col: str, task_type: str) ->
 
     return insights 
 
+def _build_prompt(run: dict, eda: dict) -> str:
+    task_type = run.get("task_type")
+    target_col = run.get("target_column") or run.get("target_col")
+    results = run.get("results", {})
+    
+    model_info = results.get("model", {})
+    metrics = results.get("metrics", {})
+    importance = results.get("importance", [])
+
+    top_features = importance[:3]
+    top_features_text = ", ".join(
+        f"{f['feature']} ({round(f['importance'] * 100, 1)}%)"
+        for f in top_features
+    ) if top_features else "not available"
+
+    if task_type == "classification":
+        metrics_text = f"Accuracy: {metrics.get('accuracy')}, F1: {metrics.get('f1_score')}, Precision: {metrics.get('precision')}, Recall: {metrics.get('recall')}"
+    elif task_type == "regression":
+        metrics_text = f"R2: {metrics.get('r2_score')}, MAE: {metrics.get('mae')}, RMSE: {metrics.get('rmse')}"
+    else:
+        metrics_text = f"Inertia: {metrics.get('inertia')}, Silhouette: {metrics.get('silhouette_score')}, Clusters: {metrics.get('n_clusters')}"
+
+    prompt = f"""You are a data analyst explaining ML results to a non-technical user. Be concise and practical.
+
+Task: {task_type}
+Target column: {target_col}
+Model used: {model_info.get('model_id', 'unknown')}
+Trained on {model_info.get('training_rows', '?')} rows, tested on {model_info.get('test_rows', '?')} rows.
+Performance: {metrics_text}
+Top 3 most important features: {top_features_text}
+Dataset: {eda.get('shape', {}).get('summary', '')}
+Missing values: {eda.get('missing_values', {}).get('summary', '')}
+
+In 4-5 sentences, explain:
+1. How well did the model perform?
+2. Which features mattered most and why might that make sense?
+3. What should the user investigate or improve next?
+
+Do not use bullet points. Write in plain English paragraphs only."""
+
+    return prompt
+
 @router.post("/{run_id}/generate")
 def generate_insights(run_id: str):
     if run_id not in run_store:
@@ -189,3 +232,43 @@ def ask_question(run_id: str, question: str):
             "answer": "Could not match a specific insight. LLM-powered Q&A slots in here next.",
             "eda": eda
         }
+
+@router.post("/{run_id}/narrate")
+def narrate_insights(run_id: str):
+    if run_id not in run_store:
+        raise HTTPException(status_code=404, detail="Run not found.")
+    
+    run = run_store[run_id]
+    
+    if run.get("status") != "completed":
+        raise HTTPException(status_code=400, detail=f"Pipeline not complete yet. Current status: {run.get('status')}")
+    
+    if run_id not in insights_store:
+        raise HTTPException(status_code=400, detail="Generate EDA insights first via POST /insights/{run_id}/generate")
+    
+    eda = insights_store[run_id]["eda"]
+    prompt = _build_prompt(run, eda)
+    
+    try:
+        response = ollama.chat(
+            model="gemma4:e2b",
+            options={"temperature": 0.3},
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+        narrative = response["message"]["content"]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM call failed: {str(e)}")
+    
+    result = {
+        "run_id": run_id,
+        "task_type": run.get("task_type"),
+        "narrative": narrative
+    }
+    insights_store[run_id]["narrative"] = narrative
+    return result
+
+# Two things to notice:
+# temperature: 0.3 — low temperature means more focused, factual responses. Higher temperature means more creative but less reliable. For data analysis explanations we want factual, so 0.3 is right.
+# insights_store[run_id]["narrative"] = narrative — we cache the narrative so the frontend can fetch it again without re-running the LLM.
