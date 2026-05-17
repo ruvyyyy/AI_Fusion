@@ -43,9 +43,24 @@ Told the user what to investigate next
 All in plain English, no bullet points, exactly what we wanted.
 
 Here's where the project stands now:
-upload✅ done
-detect✅ done
-models✅ done
-pipeline✅ trains real models
-runs✅ returns real results
-insights✅ EDA + LLM narration + Q&A
+upload- done
+detect- done
+models-  done
+pipeline- trains real models
+runs- returns real results
+insights- EDA + LLM narration + Q&A
+
+Completed:
+- Smart target column detection with keyword priority ranking (no more manual overrides for common datasets)
+- File validation on upload — rejects empty files and files with fewer than 2 columns
+- models.py fully built — catalog, recommend, and detail endpoints
+- insights.py fully built — EDA generation, caching, Q&A, LLM narration via Ollama gemma4:e2b
+- LLM improvement suggestions added to narrate output
+- Fixed narrate formatting — clean bullet points, no markdown leaking
+- runs.py wired to real run_store results instead of placeholder strings
+- Tested full pipeline on Titanic dataset — 80% accuracy, narration working correctly
+
+Next session:
+- /ask route upgrade — send questions directly to Gemma instead of keyword matching
+- Model persistence with joblib
+- Better error handling when Ollama is not running
