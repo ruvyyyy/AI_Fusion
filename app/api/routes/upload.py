@@ -11,7 +11,18 @@ file_store = {}
 async def upload_file(file: UploadFile = File(...)):
     raw_bytes = await file.read()
     filename = file.filename
-    file_id = str(uuid.uuid4()) #this is used to create a random id for every file uploaded, if 2 people upload data of same name, server wont crash
+
+    if len(raw_bytes) == 0:
+        raise HTTPException(status_code=400, detail="File is empty. Please upload a file with data.")
+
+    if filename.endswith((".csv", ".xlsx", ".tsv")):
+        df = pd.read_csv(io.BytesIO(raw_bytes))
+        if df.empty:
+            raise HTTPException(status_code=400, detail="File has no data rows. Please upload a file with at least one row.")
+        if len(df.columns) < 2:
+            raise HTTPException(status_code=400, detail="File needs at least 2 columns to be useful for ML.")
+
+    file_id = str(uuid.uuid4())
     file_store[file_id] = {"filename": filename, "raw_bytes": raw_bytes}
     return {"file_id": file_id, "filename": filename}
     

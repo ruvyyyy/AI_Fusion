@@ -142,7 +142,10 @@ In 4-5 sentences, explain:
 2. Which features mattered most and why might that make sense?
 3. What should the user investigate or improve next?
 
-Do not use bullet points. Write in plain English paragraphs only."""
+Write your analysis in 3-4 plain English sentences as a paragraph.
+
+Then add a new section with exactly this header on its own line: "How to improve:"
+Below it, give exactly 3 actionable suggestions. Start each one with "- " (dash then space) and nothing else before the text. No markdown, no numbering, no double dashes. Be specific to this dataset and task, not generic advice."""
 
     return prompt
 

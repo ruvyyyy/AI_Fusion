@@ -41,3 +41,11 @@ Identified salary, experience, department as key features
 Told the user what to investigate next
 
 All in plain English, no bullet points, exactly what we wanted.
+
+Here's where the project stands now:
+upload✅ done
+detect✅ done
+models✅ done
+pipeline✅ trains real models
+runs✅ returns real results
+insights✅ EDA + LLM narration + Q&A
