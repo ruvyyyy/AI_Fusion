@@ -5,7 +5,7 @@ from app.api.routes.upload import file_store
 # from app.api.routes.pipeline import run_store
 from app.engines.store import run_store # direct import to avoid circular imports 
 import ollama
-
+import re 
 router = APIRouter()
 
 insights_store = {}
@@ -13,6 +13,16 @@ insights_store = {}
 def _load_dataframe(file_id: str) -> pd.DataFrame:
     entry = file_store[file_id]
     return pd.read_csv(io.BytesIO(entry["raw_bytes"]))
+
+
+def _clean_markdown(text: str) -> str:
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)   # remove **bold**
+    text = re.sub(r'\*(.*?)\*', r'\1', text)         # remove *italic*
+    text = re.sub(r'`(.*?)`', r'\1', text)           # remove `code`
+    # Convert numbered list items to newline-separated
+    text = re.sub(r'\s+(\d+\.)\s+', r'\n\1 ', text)
+    return text.strip()
+    
 
 def _generate_eda_insights(df: pd.DataFrame, target_col: str, task_type: str) -> dict:
     insights = {}
@@ -201,40 +211,47 @@ def ask_question(run_id: str, question: str):
     if run_id not in run_store:
         raise HTTPException(status_code=404, detail="Run not found.")
     if run_id not in insights_store:
-        raise HTTPException(status_code=404, detail="Generate insights first via POST /insights/{run_id}/generate.")
+        raise HTTPException(status_code=404, detail="Generate insights first via POST /insights/{run_id}/generate")
 
-    cached = insights_store[run_id]
-    eda = cached["eda"]
-    q = question.lower()
+    cached   = insights_store[run_id]
+    run      = run_store[run_id]
+    eda      = cached["eda"]
+    results  = run.get("results", {})
+    metrics  = results.get("metrics", {})
+    importance = results.get("importance", [])
 
-    if any(kw in q for kw in ["missing", "null", "empty", "incomplete"]):
-        return {"question": question, "answer": eda["missing_values"]["summary"]}
+    top_features = ", ".join(
+        f"{f['feature']} ({round(f['importance']*100,1)}%)"
+        for f in importance[:5]
+    ) if importance else "not available"
 
-    elif any(kw in q for kw in ["target", "predict", "label", "class"]):
-        return {"question": question, "answer": eda.get("target", {}).get("summary", "No target info available.")}
+    context_prompt = f"""You are a data analyst assistant. Answer the user's question about their ML pipeline results.
 
-    elif any(kw in q for kw in ["correlat", "important", "feature", "which column"]):
-        return {"question": question, "answer": eda.get("numeric_features", {}).get("summary", "No numeric feature analysis available.")}
+Dataset context:
+- Task type: {run.get('task_type')}
+- Target column: {run.get('target_col') or run.get('target_column')}
+- Shape: {eda.get('shape', {}).get('summary', '')}
+- Missing values: {eda.get('missing_values', {}).get('summary', '')}
+- Target distribution: {eda.get('target', {}).get('summary', '')}
+- Top features: {top_features}
+- Model metrics: {metrics}
 
-    elif any(kw in q for kw in ["categor", "text", "string", "encode"]):
-        return {"question": question, "answer": eda.get("categorical_features", {}).get("summary", "No categorical feature analysis available.")}
+User question: {question}
 
-    elif any(kw in q for kw in ["size", "rows", "shape", "how many", "big"]):
-        return {"question": question, "answer": eda["shape"]["summary"]}
+Answer in 2-3 concise sentences. Be specific to their data, not generic."""
 
-    elif any(kw in q for kw in ["imbalance", "balance", "skew"]):
-        target = eda.get("target", {})
-        balance = target.get("balance")
-        if balance:
-            return {"question": question, "answer": f"The target is {balance}. {target['summary']}"}
-        return {"question": question, "answer": "Balance info only available for classification tasks."}
+    try:
+        response = ollama.chat(
+            model="gemma4:e2b",
+            options={"temperature": 0.4},
+            messages=[{"role": "user", "content": context_prompt}]
+        )
+        answer = _clean_markdown(response["message"]["content"])
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM call failed: {str(e)}")
 
-    else:
-        return {
-            "question": question,
-            "answer": "Could not match a specific insight. LLM-powered Q&A slots in here next.",
-            "eda": eda
-        }
+    return {"question": question, "answer": answer}
 
 @router.post("/{run_id}/narrate")
 def narrate_insights(run_id: str):
@@ -257,20 +274,48 @@ def narrate_insights(run_id: str):
             model="gemma4:e2b",
             options={"temperature": 0.3},
             messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
+                {"role": "user", "content": prompt}]
+            )
         narrative = response["message"]["content"]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM call failed: {str(e)}")
+    lines = narrative.strip().split("\n")
+    narrative_parts = []
+    reccommendation_parts = []
+    in_improvements = False
     
-    result = {
-        "run_id": run_id,
-        "task_type": run.get("task_type"),
-        "narrative": narrative
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        if "how to improve" in line.lower():
+            in_improvements = True
+            continue
+        if in_improvements and line.startswith("- "):
+            reccommendation_parts.append(line[2:].strip())
+        elif not in_improvements:
+            narrative_parts.append(line)
+    
+    structured = {
+        "insights":[
+            {
+                "text": " ".join(narrative_parts),
+                "source_stat": f"model={run.get('results',{}).get('model',{}).get('model_id','?')}",
+                "confidence": 0.85
+            }
+        ],
+        "recommendations": [
+            {
+                "action": rec,
+                "rationale":"Based on performace and feature analysis",
+                "priority": "high" if i == 0 else "medium" if i == 1 else "low"
+            }
+            for i, rec in enumerate(reccommendation_parts)
+        ]
     }
     insights_store[run_id]["narrative"] = narrative
-    return result
+    insights_store[run_id]["structured"] = structured
+    return structured
 
 # Two things to notice:
 # temperature: 0.3 — low temperature means more focused, factual responses. Higher temperature means more creative but less reliable. For data analysis explanations we want factual, so 0.3 is right.
