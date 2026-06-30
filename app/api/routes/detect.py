@@ -1,0 +1,89 @@
+from fastapi import APIRouter, HTTPException
+import pandas as pd
+import io
+from app.api.routes.upload import file_store
+from typing import Optional
+
+router = APIRouter()
+
+TARGET_KEYWORDS = [
+    # Highest priority — almost certainly the target
+    "target", "label", "y",
+    # High priority — domain specific but very common
+    "survived", "promoted", "churn", "outcome", "result", "output",
+    # Medium priority — could be target or feature
+    "price", "salary", "revenue", "score", "class", "category"
+]
+
+def _find_best_target(df: pd.DataFrame) -> str:
+    col_names_lower = {col.lower(): col for col in df.columns}
+    for keyword in TARGET_KEYWORDS:
+        if keyword in col_names_lower:
+            return col_names_lower[keyword]
+    return df.columns[-1]
+
+@router.post("/")
+def data_profiler(file_id: str):
+    if file_id not in file_store:
+        raise HTTPException(status_code=404, detail="File not found")
+    entry = file_store[file_id]
+    filename= entry["filename"]
+    raw_bytes= entry["raw_bytes"]
+    if not filename.endswith((".csv", ".xlsx", ".tsv")):
+        raise HTTPException(status_code=404, detail="Only tabular files supported for detection") #detect only works on tabular data for now
+    df = pd.read_csv(io.BytesIO(raw_bytes))
+    target_col = _find_best_target(df) # Scans column names for common target keywords like 'survived', 'promoted', 'churn'.
+    # Falls back to the last column if no keyword match is found.
+    n_unique = df[target_col].nunique() #counts how many unique values are in that column. For example [yes, no, yes, no] has 2 unique values.
+    dtype = str(df[target_col].dtype) #checks data type.
+
+    if n_unique==2: # almost certainly classification (yes/no, 0/1, true/false)
+        task_type = "classification"
+        confidence = 0.97
+    elif dtype in ("float64", "int64") and n_unique>20: #numeric with many unique values like predicting salary, price, temperature
+        task_type = "regression"
+        confidence = 0.85
+    else: #no clear target pattern
+        task_type = "clustering"
+        confidence = 0.55
+    #The confidence is just how sure we are about that decision — binary columns are very obvious so 0.97, numeric is pretty clear so 0.85, clustering is a guess so 0.55.
+    entry["task_type"] = task_type
+    return {"target_column": target_col, "task_type": task_type,"confidence": confidence, "unique_values": n_unique, "dtype": dtype}
+
+@router.patch("/")
+def override_detection(file_id: str, task_type: Optional[str] = None, target_column: Optional[str] = None):
+    if file_id not in file_store:
+        raise HTTPException(status_code=404, detail="File not found")
+    entry = file_store[file_id]
+    if task_type is not None:
+        entry["task_type"] = task_type
+    if target_column is not None: 
+        entry["target_column"] = target_column
+    return {"task_type": entry.get("task_type"), "target_column": entry.get("target_column")}
+
+#Finds their file in file_store
+#Checks if they sent a new task_type — if yes, overwrites the old one
+#Checks if they sent a new target_column — if yes, overwrites that too
+#Returns whatever is now stored
+
+
+@router.get("/{file_id}/profile")
+def stats_profile(file_id: str):
+    if file_id not in file_store:
+        raise HTTPException(status_code=404, detail="File not found")
+    entry = file_store[file_id]
+    raw_bytes = entry["raw_bytes"]
+    filename = entry["filename"]
+    if not filename.endswith((".csv", ".xlsx", ".tsv")):
+        raise HTTPException(status_code=400, detail="Only tabular files supported for profiling")
+    df = pd.read_csv(io.BytesIO(raw_bytes))
+    profile = {}
+    for col in df.columns:
+        profile[col] = {
+            "dtype": str(df[col].dtype),
+            "nulls": int(df[col].isnull().sum()),
+            "unique": int(df[col].nunique()),
+        }
+    return {"profile": profile, "shape": {"rows": df.shape[0], "cols": df.shape[1]}}
+
+#in detect route, we only worked on csv data, that was because the detect route is for data profiling, ie, figuring out what ml models to run and what columns mean and that is only required for data in csv format.

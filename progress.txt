@@ -1,0 +1,66 @@
+21/3/26
+I made the folder structure of the project.  
+automl_engine/
+├── app/
+│   ├── api/
+│   │   └── routes/
+│   ├── engines/
+│   ├── models/
+│   └── schemas/
+├── data/
+│   └── samples/
+└── tests/
+
+Made two fastapi routes and tested the work for a few functionalities and they worked perfectly.
+-upload.py 
+-detect.py
+Installed all the required libraries. 
+Committed all the changes and pushed into the repository.
+
+22/3/26
+Completed
+-pipeline.py
+-runs.py
+Committed all chnages
+Ran main.py and everything was a 200 OK.
+
+11/5/26
+Completed
+-models.py 
+Committed all chnages
+Ran main.py and everything was a 200 OK.
+
+**THIS IS JUST A TEST MESSAGE TO CONFIRM THE BRANCH EXISTENCE:)**
+
+17/5/26
+Downloaded ollama and the agent for hours. downloaded gemma4:e2b, which is gemma 4 but just a smaller version because the e4b version was giving errors because bigger size, 9.6 gb, currently downloaded the 7.2 gb version.
+The full chain is working end to end. Gemma 4 gave a clear, practical explanation:
+
+Flagged the low accuracy honestly
+Identified salary, experience, department as key features
+Told the user what to investigate next
+
+All in plain English, no bullet points, exactly what we wanted.
+
+Here's where the project stands now:
+upload- done
+detect- done
+models-  done
+pipeline- trains real models
+runs- returns real results
+insights- EDA + LLM narration + Q&A
+
+Completed:
+- Smart target column detection with keyword priority ranking (no more manual overrides for common datasets)
+- File validation on upload — rejects empty files and files with fewer than 2 columns
+- models.py fully built — catalog, recommend, and detail endpoints
+- insights.py fully built — EDA generation, caching, Q&A, LLM narration via Ollama gemma4:e2b
+- LLM improvement suggestions added to narrate output
+- Fixed narrate formatting — clean bullet points, no markdown leaking
+- runs.py wired to real run_store results instead of placeholder strings
+- Tested full pipeline on Titanic dataset — 80% accuracy, narration working correctly
+
+Next session:
+- /ask route upgrade — send questions directly to Gemma instead of keyword matching
+- Model persistence with joblib
+- Better error handling when Ollama is not running

@@ -1,0 +1,11 @@
+age,salary,years_experience,department,promoted
+25,40000,1,Engineering,No
+30,60000,5,Marketing,Yes
+35,80000,10,Engineering,Yes
+28,45000,3,HR,No
+40,95000,15,Engineering,Yes
+22,35000,0,Marketing,No
+33,70000,8,HR,Yes
+45,110000,20,Engineering,Yes
+27,42000,2,Marketing,No
+38,88000,12,HR,Yes
